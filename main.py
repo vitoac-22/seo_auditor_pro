@@ -1,4 +1,3 @@
-# UBICACIÓN: main.py
 import os
 import sys
 from modules.scraper import SiteScraper
@@ -15,10 +14,10 @@ def load_seeds(filepath="seeds.txt"):
 
 def main():
     print("\n=================================================")
-    print("   AUDITORÍA SEO: PROTOCOLO CONSULTORÍA V2.0")
+    print("   AUDITORÍA SEO: PROTOCOLO TÉCNICO")
     print("=================================================\n")
     
-    # 1. OBJETIVOS (Tus URLs)
+    # 1. TARGETS
     TARGETS = {
         "Home": "https://www.reysabiosalomon.org/",
         "Basica": "https://www.reysabiosalomon.org/basicaelemental",
@@ -26,7 +25,7 @@ def main():
         "Nosotros": "https://www.reysabiosalomon.org/about-us"
     }
 
-    # 2. COMPETENCIA (Deep Linking para capturar textos de venta)
+    # 2. COMPETENCIA (Deep Linking)
     COMPETITORS = [
         "https://www.ism.edu.ec/admisiones/",
         "https://www.jkepler.edu.ec/admisiones/",
@@ -35,7 +34,7 @@ def main():
         "https://colegioletort.edu.ec/admisiones/"
     ]
     
-    # 3. CARGA DE INTELIGENCIA
+    # 3. CARGA DE DATOS
     seeds = load_seeds("seeds.txt")
     if not seeds: return
 
@@ -43,10 +42,10 @@ def main():
     all_keywords = market.get_suggestions(seeds)
     if not all_keywords: all_keywords = seeds
 
-    scraper = SiteScraper("") # Instancia genérica
+    scraper = SiteScraper("")
     
     # 4. AUDITORÍA INTERNA
-    print(f"> FASE 1: Auditoría Interna ({len(TARGETS)} URLs)")
+    print(f"> FASE 1: Escaneo Interno ({len(TARGETS)} URLs)")
     site_corpus = {}
     for name, url in TARGETS.items():
         print(f"   Analizando: {name}")
@@ -60,7 +59,7 @@ def main():
         return
 
     # 5. INTELIGENCIA COMPETITIVA
-    print(f"\n> FASE 2: Benchmarking Competitivo")
+    print(f"\n> FASE 2: Escaneo Competencia")
     competitor_corpus = {}
     for url in COMPETITORS:
         scraper.url = url
@@ -72,8 +71,8 @@ def main():
         except:
             print(f"   [!] Error en: {url}")
 
-    # 6. PROCESAMIENTO ESTADÍSTICO
-    print("\n> FASE 3: Cálculo Vectorial & Ponderación Comercial")
+    # 6. PROCESAMIENTO
+    print("\n> FASE 3: Análisis Vectorial")
     analyzer = SEOAnalyzer(site_corpus, all_keywords)
     
     df_results = analyzer.run_matrix_analysis()
@@ -82,8 +81,8 @@ def main():
     if competitor_corpus:
         comp_keywords_scored = analyzer.analyze_competitors(competitor_corpus)
 
-    # 7. REPORTE FINAL
-    print("\n> FASE 4: Generación de Entregable")
+    # 7. REPORTE
+    print("\n> FASE 4: Generación de Reporte")
     if df_results is not None:
         reporter = StrategicReport()
         reporter.generate(
@@ -91,10 +90,10 @@ def main():
             "output/heatmap_estrategico.png", 
             comp_keywords_scored, 
             COMPETITORS, 
-            "output/Reporte_Ejecutivo_.pdf"
+            "output/Reporte_Tecnico_SEO.pdf"
         )
     
-    print("\n✅ PROCESO FINALIZADO. Revise la carpeta /output")
+    print("\n✅ PROCESO FINALIZADO.")
 
 if __name__ == "__main__":
     main()

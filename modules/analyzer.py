@@ -1,10 +1,8 @@
-# UBICACIÓN: modules/analyzer.py
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import os
 
 class SEOAnalyzer:
@@ -12,20 +10,7 @@ class SEOAnalyzer:
         self.corpus = site_corpus_dict
         self.keywords = keywords
         
-        # DICCIONARIO DE PESOS COMERCIALES (MARKETING BIAS)
-        # Asignamos multiplicadores: 
-        # 1.5x para dinero directo
-        # 1.3x para urgencia/acción
-        # 1.2x para calidad/autoridad
-        self.commercial_weights = {
-            'precio': 1.5, 'costo': 1.5, 'pension': 1.5, 'matricula': 1.5, 
-            'inscripcion': 1.5, 'admision': 1.5, 'cupo': 1.5, '2026': 1.4,
-            'abiertas': 1.3, 'requisitos': 1.3, 'agenda': 1.3, 'visita': 1.3,
-            'contacto': 1.3, 'ubicacion': 1.2, 'norte': 1.2, 'quito': 1.1,
-            'excelencia': 1.2, 'bilingue': 1.2, 'ingles': 1.2, 'tecnico': 1.2,
-            'informatica': 1.2, 'seguridad': 1.2, 'bullying': 1.1
-        }
-        
+        # Stop words estándar para limpieza lingüística
         self.stop_words = [
             'de', 'la', 'que', 'el', 'en', 'y', 'a', 'los', 'del', 'se', 'las', 
             'por', 'un', 'para', 'con', 'no', 'una', 'su', 'al', 'lo', 'como',
@@ -39,49 +24,68 @@ class SEOAnalyzer:
             'nosotros', 'mi', 'mis', 'tu', 'tus', 'te', 'ti', 'web', 'sitio'
         ]
 
-    def _get_weight(self, keyword):
-        """Calcula el multiplicador comercial basado en palabras clave dentro de la frase."""
-        weight = 1.0
-        for trigger, multiplier in self.commercial_weights.items():
-            if trigger in keyword.lower():
-                # Si encuentra una palabra de dinero, aumenta el peso.
-                # Usamos max para no multiplicar excesivamente si tiene muchas palabras.
-                weight = max(weight, multiplier)
-        return weight
+    def classify_intent(self, keyword):
+        """
+        Clasificación Categórica estándar en SEO (No inventada).
+        Determina la etapa del funnel de ventas.
+        """
+        kw = keyword.lower()
+        
+        # 1. Transaccional (Do): El usuario quiere comprar/inscribirse YA.
+        transactional_tokens = ['precio', 'costo', 'pension', 'matricula', 'inscripcion', 
+                              'admision', 'cupo', 'comprar', 'valor', 'mensualidad', 'abiertas']
+        if any(t in kw for t in transactional_tokens):
+            return "TRANSACCIONAL"
+            
+        # 2. Comercial (Investigate): El usuario compara opciones.
+        commercial_tokens = ['mejor', 'ranking', 'top', 'comparativa', 'vs', 'reseña', 
+                           'opiniones', 'lista', 'norte', 'sur', 'quito', 'cumbaya']
+        if any(t in kw for t in commercial_tokens):
+            return "COMERCIAL"
+            
+        # 3. Informacional (Know): El usuario busca datos generales.
+        informational_tokens = ['que', 'como', 'cuando', 'historia', 'metodologia', 
+                              'educacion', 'significado', 'guia', 'consejos']
+        if any(t in kw for t in informational_tokens):
+            return "INFORMACIONAL"
+            
+        return "GENERICO" # Default
 
     def analyze_competitors(self, competitor_corpus):
         """
-        Analiza textos de la competencia y devuelve ranking ponderado.
+        Extrae las palabras más relevantes de la competencia usando TF-IDF puro.
+        Esto revela qué palabras definen matemáticamente su contenido.
         """
-        print("      ... [IA] Analizando estrategia de competidores...")
+        print("      ... [IA] Ejecutando extracción de entidades de competencia...")
         if not competitor_corpus: return []
 
         full_text = " ".join(competitor_corpus.values()).lower()
         
         try:
+            # TF-IDF para detectar términos únicos y relevantes
             vectorizer = TfidfVectorizer(stop_words=self.stop_words, max_features=300, ngram_range=(1,2))
             tfidf_matrix = vectorizer.fit_transform([full_text])
+            
             feature_names = vectorizer.get_feature_names_out()
             scores = tfidf_matrix.toarray()[0]
             
+            # Mapeamos palabra -> puntaje real
             scored_keywords = []
             for word, score in zip(feature_names, scores):
-                # Aplicamos sesgo comercial
-                commercial_factor = self._get_weight(word)
-                final_score = score * commercial_factor
-                
-                # Filtramos ruido y números puros
-                if final_score > 0.05 and not word.replace('.','').isdigit():
-                    scored_keywords.append((word, final_score))
+                # Filtramos solo si tiene relevancia estadística real (>0.05)
+                if score > 0.05 and not word.replace('.','').isdigit():
+                    intent = self.classify_intent(word)
+                    scored_keywords.append((word, score, intent))
             
+            # Ordenamos por relevancia TF-IDF descendente
             scored_keywords.sort(key=lambda x: x[1], reverse=True)
-            return scored_keywords[:25]
+            return scored_keywords[:30]
 
         except ValueError:
             return []
 
     def run_matrix_analysis(self):
-        print("      ... [IA] Calculando Matriz de Relevancia Cruzada (Weighted TF-IDF)")
+        print("      ... [IA] Calculando Matriz Vectorial (Vector Space Model)")
         
         page_names = list(self.corpus.keys())
         page_texts = list(self.corpus.values())
@@ -90,48 +94,48 @@ class SEOAnalyzer:
         all_content = page_texts + self.keywords
         
         try:
-            # ngram_range=(1,3) permite capturar frases como "colegio norte quito"
+            # Usamos n-gramas (1,3) para capturar frases compuestas
             vectorizer = TfidfVectorizer(stop_words=self.stop_words, ngram_range=(1,3))
             tfidf_matrix = vectorizer.fit_transform(all_content)
         except ValueError:
-            print("      [Error] Contenido insuficiente para análisis vectorial.")
+            print("      [Error] Corpus insuficiente para vectorización.")
             return None
 
+        # Separamos vectores
         page_vectors = tfidf_matrix[:len(page_names)]     
         keyword_vectors = tfidf_matrix[len(page_names):]  
         
+        # Cálculo de Similitud de Coseno (Métrica Estándar en NLP)
         similarity_matrix = cosine_similarity(keyword_vectors, page_vectors)
+        
+        # DataFrame con métricas puras
         df_heatmap = pd.DataFrame(similarity_matrix, columns=page_names, index=self.keywords)
         
         if not os.path.exists('output'): os.makedirs('output')
-        df_heatmap.to_csv("output/seo_matrix_raw.csv")
-
-        # --- LÓGICA DE NEGOCIO: PONDERACIÓN ---
-        # Calculamos un "Score de Oportunidad" que premia la intención transaccional
-        df_heatmap['commercial_weight'] = [self._get_weight(k) for k in df_heatmap.index]
         
-        # Max Value ponderado: (Mejor cobertura actual) * (Importancia comercial)
-        # Esto nos ayuda a ordenar qué mostrar en el gráfico (lo más importante)
-        df_heatmap['ranking_score'] = df_heatmap.drop(columns=['commercial_weight']).max(axis=1) * df_heatmap['commercial_weight']
+        # --- ENRIQUECIMIENTO DE DATOS ---
+        # No alteramos el score, solo añadimos metadatos para el reporte
+        df_heatmap['search_intent'] = [self.classify_intent(k) for k in df_heatmap.index]
         
-        # Filtramos Top 40 por importancia comercial/estratégica
-        df_top = df_heatmap.sort_values(by='ranking_score', ascending=False).head(40)
+        # Para el gráfico, usamos el máximo score de cobertura
+        df_heatmap['max_coverage'] = df_heatmap.drop(columns=['search_intent']).max(axis=1)
         
-        # Limpiamos columnas auxiliares para el gráfico, pero mantenemos 'commercial_weight' para el reporte
-        cols_to_plot = df_top.drop(columns=['ranking_score', 'commercial_weight'])
+        # Filtramos para visualización (Top 40 más relevantes o solicitadas)
+        df_top = df_heatmap.sort_values(by='max_coverage', ascending=False).head(40)
         
+        # Generamos el mapa de calor solo con datos numéricos
+        cols_to_plot = df_top.drop(columns=['max_coverage', 'search_intent'])
         self._generate_heatmap(cols_to_plot)
         
-        # Retornamos el DF con la columna de peso para que el reporter sepa qué priorizar
         return df_top
 
     def _generate_heatmap(self, df):
         plt.figure(figsize=(14, 12))
-        # cmap="RdYlGn" -> Rojo (0 coverage) a Verde (1 coverage). Más intuitivo para gerencia.
-        sns.heatmap(df, annot=True, fmt=".2f", cmap="RdYlGn", cbar_kws={'label': 'Cobertura Actual (0=Riesgo, 1=Cubierto)'})
-        plt.title('Matriz de Cobertura Estratégica: Demanda vs Oferta Actual')
-        plt.xlabel('Páginas Auditadas')
-        plt.ylabel('Intenciones de Búsqueda (Ordenadas por Valor Comercial)')
+        # RdYlGn: Rojo=0 (Sin cobertura), Verde=1 (Cobertura total)
+        sns.heatmap(df, annot=True, fmt=".2f", cmap="RdYlGn", cbar_kws={'label': 'Similitud de Coseno (Relevancia Semántica)'})
+        plt.title('Auditoría de Cobertura Semántica: Keywords vs URLs')
+        plt.xlabel('Estructura Web Analizada')
+        plt.ylabel('Keywords Objetivo')
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig('output/heatmap_estrategico.png')
