@@ -1,6 +1,7 @@
 from fpdf import FPDF
 import datetime
 import os
+import pandas as pd
 
 class StrategicReport(FPDF):
     def __init__(self):
@@ -27,7 +28,7 @@ class StrategicReport(FPDF):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.set_text_color(128)
-        self.cell(0, 10, f'Página {self.page_no()} - Generado por SEO Auditor Pro', 0, 0, 'C')
+        self.cell(0, 10, f'Pagina {self.page_no()} - Generado por SEO Auditor Pro', 0, 0, 'C')
 
     def portada(self):
         self.add_page()
@@ -149,9 +150,17 @@ class StrategicReport(FPDF):
         self.cell(0, 10, self.sanitize("4. Hoja de Ruta: Optimización On-Page"), 0, 1, 'L')
         self.ln(5)
         
+        # Lista de columnas a ignorar (Metadata)
+        ignore_cols = ['max_relevance', 'search_intent', 'intent', 'market_interest', 'max_coverage', 'action_priority']
+
         # Iterar páginas
         for pagina in df_heatmap.columns:
-            if pagina in ['max_relevance', 'search_intent']: continue
+            # 1. Ignorar si está en la lista negra
+            if pagina in ignore_cols: continue
+            
+            # 2. BLINDAJE: Ignorar si la columna NO es numérica (evita el TypeError)
+            if not pd.api.types.is_numeric_dtype(df_heatmap[pagina]):
+                continue
 
             # Título de Página
             self.set_fill_color(71, 85, 105) # Slate grey
@@ -168,6 +177,9 @@ class StrategicReport(FPDF):
             optimized = []        # Están bien
             
             for kw, score in col_data.items():
+                # Asegurarse que score es número antes de comparar
+                if not isinstance(score, (int, float)): continue
+                
                 if score == 0.0:
                     missing_critical.append(kw)
                 elif score < 0.05:
